@@ -1,9 +1,9 @@
 <?php
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DashboardController; // Pastikan ini terimport
 use App\Http\Controllers\PegawaiController;
-use Illuminate\Support\Facades\Route; // Pastikan ini ada
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,29 +29,26 @@ Route::group(['middleware' => ['auth:admin']], function () {
     Route::get('/pegawai', [PegawaiController::class, 'list'])->name('pegawai.index');
     Route::delete('/pegawai/{pegawai}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy');
 
-    // Untuk menampilkan form edit
     Route::get('/pegawai/{pegawai}/edit', [PegawaiController::class, 'edit'])->name('pegawai.edit');
-
-    // Untuk menyimpan perubahan (update)
     Route::put('/pegawai/{pegawai}', [PegawaiController::class, 'update'])->name('pegawai.update');
+
+    // ROUTE BARU UNTUK REKAP ABSENSI SEMUA PEGAWAI DI ADMIN
+    Route::get('/admin/rekapadmin', [DashboardController::class, 'rekapAllAbsensi'])->name('admin.rekap.absensi');
 });
 
 // Pegawai Routes (dilindungi oleh middleware 'auth:pegawai')
 Route::group(['middleware' => ['auth:pegawai']], function () {
-    // Rute ini akan memanggil AbsensiController@index untuk menampilkan halaman home pegawai
     Route::get('pegawai/home', [AbsensiController::class, 'index'])->name('pegawai.home');
 
-    // Rute untuk halaman rekap absensi
-    // Anda bisa mengganti ini dengan AbsensiController@rekap jika Anda membuat method rekap di AbsensiController
-    Route::get('rekap', function() {
-        return view('pegawai.rekap');
-    })->name('rekap');
+    Route::get('rekap', [AbsensiController::class, 'rekap'])->name('rekap');
 
-    // Rute untuk proses check-in absensi
     Route::post('/absensi/cek-in', [AbsensiController::class, 'cekIn'])->name('absensi.cekIn');
-    // Rute untuk proses check-out absensi
     Route::post('/absensi/cek-out', [AbsensiController::class, 'cekOut'])->name('absensi.cekOut');
 
-    // Rute ini juga memanggil AbsensiController@index, jika Anda memiliki link lain ke '/absensi'
     Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
 });
+
+// Route untuk halaman akses tidak diizinkan
+Route::get('/unauthorized-access', function () {
+    return view('errors.unauthorized_access');
+})->name('unauthorized.access');

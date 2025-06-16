@@ -41,7 +41,8 @@ class PegawaiController extends Controller
         ]);
 
         // Login otomatis setelah registrasi (menggunakan guard 'pegawai')
-        Auth::guard('pegawai')->login($pegawai);
+        return redirect()->route('pegawai.index') // Asumsi ini route daftar pegawai di admin
+            ->with('success', 'Data pegawai berhasil Tambahkan.');
 
         return redirect()->route('pegawai.home')->with('success', 'Pendaftaran berhasil, Anda telah login.');
     }

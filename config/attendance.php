@@ -21,7 +21,7 @@ return [
 
             // IP localhost untuk pengujian di mesin yang sama dengan server Laravel
             '127.0.0.1', // localhost IPv4
-            '::1',       // localhost IPv6
+            // '::1',       // localhost IPv6
         ],
         // Menambahkan seluruh rentang IP dari 192.168.60.1 hingga 192.168.60.254
         // Anda bisa menyesuaikan rentang start dan end jika DHCP Anda lebih spesifik

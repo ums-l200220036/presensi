@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
-use App\Models\Pegawai; // Menggunakan model Pegawai, bukan User
+use App\Models\Pegawai; // Menggunakan model Pegawai
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth; // Untuk Auth facade
 use Carbon\Carbon; // Digunakan untuk manipulasi waktu
@@ -88,8 +88,8 @@ class AbsensiController extends Controller
         $currentTime = now('Asia/Jakarta');
 
         // Waktu Check-in (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
-        $checkInStartTime = Carbon::createFromTimeString('07:30:00', 'Asia/Jakarta'); // Jam mulai tepat waktu
-        $checkInEndTime = Carbon::createFromTimeString('08:15:00', 'Asia/Jakarta');   // Jam akhir tepat waktu (setelah ini terlambat)
+        $checkInStartTime = Carbon::createFromTimeString('00:00:00', 'Asia/Jakarta'); // Jam mulai tepat waktu
+        $checkInEndTime = Carbon::createFromTimeString('00:15:00', 'Asia/Jakarta');   // Jam akhir tepat waktu (setelah ini terlambat)
 
         if (!$pegawaiId) {
             return response()->json(['success' => false, 'message' => 'ID pegawai tidak ditemukan.'], 400);
@@ -168,8 +168,8 @@ class AbsensiController extends Controller
         $currentTime = now('Asia/Jakarta');
 
         // Waktu Check-out (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
-        $checkOutStartTime = Carbon::createFromTimeString('15:00:00', 'Asia/Jakarta'); // Jam mulai check-out
-        $checkOutEndTime = Carbon::createFromTimeString('16:00:00', 'Asia/Jakarta');   // Jam akhir check-out
+        $checkOutStartTime = Carbon::createFromTimeString('00:00:00', 'Asia/Jakarta'); // Jam mulai check-out
+        $checkOutEndTime = Carbon::createFromTimeString('00:20:00', 'Asia/Jakarta');   // Jam akhir check-out
 
         $absensi = Absensi::where('pegawai_id', $pegawaiId)
             ->where('tanggal', $tanggal)
@@ -200,5 +200,51 @@ class AbsensiController extends Controller
             // Jika absensi ada, jam_masuk ada, dan jam_pulang juga sudah ada (sudah check-out)
             return response()->json(['success' => false, 'message' => 'Anda sudah Check Out hari ini.'], 400);
         }
+    }
+
+    /**
+     * Menampilkan rekap presensi bulanan untuk pegawai yang sedang login.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\View\View
+     */
+    public function rekap(Request $request)
+    {
+        $pegawaiId = Auth::guard('pegawai')->id();
+
+        // Ambil bulan dan tahun dari request, default ke bulan dan tahun sekarang
+        // Request input 'bulan' akan datang dalam format YYYY-MM
+        $selectedMonthYear = $request->input('bulan', now()->format('Y-m'));
+
+        // Pisahkan tahun dan bulan dari format YYYY-MM
+        list($year, $month) = explode('-', $selectedMonthYear);
+
+        // Buat objek Carbon untuk awal dan akhir bulan yang dipilih
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
+        $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+
+        // Ambil data absensi untuk pegawai yang login, di bulan yang dipilih
+        $daftarPresensi = Absensi::where('pegawai_id', $pegawaiId)
+            ->whereBetween('tanggal', [$startDate->toDateString(), $endDate->toDateString()])
+            ->orderBy('tanggal', 'asc')
+            ->get();
+
+        // Siapkan data untuk dropdown filter bulan/tahun
+        $availableMonths = [];
+        // Misalnya, tampilkan 12 bulan terakhir dari bulan saat ini
+        for ($i = 0; $i < 12; $i++) { // Tampilkan 12 bulan ke belakang
+            $date = Carbon::now()->subMonths($i);
+            $availableMonths[] = [
+                'value' => $date->format('Y-m'), // Format YYYY-MM untuk nilai dropdown
+                'label' => $date->translatedFormat('F Y'), // Format Bahasa Indonesia (Juni 2025)
+            ];
+        }
+        // Urutkan dari bulan terlama ke terbaru (opsional, tergantung preferensi)
+        // Jika Anda ingin bulan terbaru di atas, jangan gunakan array_reverse
+        $availableMonths = array_reverse($availableMonths);
+
+
+        // Teruskan data ke view, termasuk selectedMonthYear untuk menandai option yang dipilih
+        return view('pegawai.rekap', compact('daftarPresensi', 'availableMonths', 'selectedMonthYear'));
     }
 }

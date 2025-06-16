@@ -21,7 +21,7 @@
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ route('admin.dashboard') }}" class="flex items-center space-x-2 py-2 px-4 hover:bg-blue-700 rounded-lg mb-2">
+                <a href="{{ route('admin.rekap.absensi') }}" class="flex items-center space-x-2 py-2 px-4 hover:bg-blue-700 rounded-lg mb-2">
                     <i class="fas fa-calendar-check"></i>
                     <span>Presensi</span>
                 </a>
