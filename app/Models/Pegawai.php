@@ -3,42 +3,38 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable; // Jika Anda menggunakan Pegawai untuk otentikasi
+use Illuminate\Foundation\Auth\User as Authenticatable; // Penting: Pegawai juga bisa diautentikasi
 use Illuminate\Notifications\Notifiable;
 
-class Pegawai extends Authenticatable // Atau hanya 'Model' jika tidak untuk otentikasi login
+class Pegawai extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    /**
-     * Atribut yang dapat diisi secara massal (mass assignable).
-     *
-     * @var array<int, string>
-     */
+    protected $guard = 'pegawai'; // Menentukan guard yang akan digunakan untuk model ini
+
     protected $fillable = [
         'name',
         'email',
-        'password', // <<< Pastikan 'password' ada di sini!
+        'password',
         'jabatan',
         'bidang',
     ];
 
-    /**
-     * Atribut yang harus disembunyikan untuk serialisasi.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
-        'remember_token', // Jika Anda menggunakannya untuk fitur "ingat saya"
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime', // Jika Anda menambahkan verified email ke tabel pegawai
+        'password' => 'hashed',
     ];
 
     /**
-     * Atribut yang harus di-cast.
-     *
-     * @var array<string, string>
+     * Get the absensis for the pegawai.
      */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-    ];
+    public function absensis()
+    {
+        return $this->hasMany(Absensi::class, 'pegawai_id');
+    }
 }

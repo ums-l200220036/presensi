@@ -1,9 +1,10 @@
 <?php
+// database/migrations/xxxx_xx_xx_create_pegawais_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB; // Pastikan ini ada
+use Illuminate\Support\Facades\Hash; // Pastikan ini ada
 use Illuminate\Support\Facades\Schema;
 
 class CreatePegawaisTable extends Migration
@@ -17,6 +18,7 @@ class CreatePegawaisTable extends Migration
             $table->string('password');
             $table->string('jabatan');
             $table->string('bidang');
+            $table->rememberToken(); // Penting untuk remember me functionality
             $table->timestamps();
         });
 

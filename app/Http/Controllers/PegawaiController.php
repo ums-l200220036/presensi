@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pegawai;
+use App\Models\Pegawai; // Menggunakan model Pegawai
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Auth; // Untuk login
 
 class PegawaiController extends Controller
 {
+    // Method index ini mungkin tidak digunakan lagi jika /pegawai/home ditangani AbsensiController@index
+    // Jika Anda ingin ini menjadi halaman landing umum pegawai (bukan absensi), sesuaikan.
     public function index()
     {
-        return view('pegawai.home');
+        return view('pegawai.home'); // Ini mungkin perlu diganti jika AbsensiController yang menangani home
     }
 
     public function list()
@@ -24,7 +26,7 @@ class PegawaiController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:pegawais,email',
+            'email' => 'required|email|unique:pegawais,email', // Validasi unik di tabel 'pegawais'
             'password' => 'required|string|min:8|confirmed',
             'jabatan' => 'required|string',
             'bidang' => 'required|string',
@@ -38,8 +40,8 @@ class PegawaiController extends Controller
             'bidang' => $validated['bidang'],
         ]);
 
-        // Login otomatis setelah registrasi
-        Auth::login($pegawai);
+        // Login otomatis setelah registrasi (menggunakan guard 'pegawai')
+        Auth::guard('pegawai')->login($pegawai);
 
         return redirect()->route('pegawai.home')->with('success', 'Pendaftaran berhasil, Anda telah login.');
     }
@@ -49,7 +51,8 @@ class PegawaiController extends Controller
         $pegawai = Pegawai::findOrFail($id);
         $pegawai->delete();
 
-        return redirect()->route('pegawai.index')
+        // Menggunakan nama route yang benar, jika setelah hapus ingin kembali ke daftar admin
+        return redirect()->route('pegawai.index') // Asumsi ini route daftar pegawai di admin
             ->with('success', 'Data pegawai berhasil dihapus');
     }
 
@@ -62,7 +65,7 @@ class PegawaiController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:pegawais,email,' . $pegawai->id,
+            'email' => 'required|email|unique:pegawais,email,' . $pegawai->id, // Validasi unik dengan pengecualian ID saat update
             'password' => 'nullable|string|min:8|confirmed',
             'jabatan' => 'required|string',
             'bidang' => 'required|string'
@@ -81,7 +84,7 @@ class PegawaiController extends Controller
 
         $pegawai->update($updateData);
 
-        return redirect()->route('pegawai.index')
+        return redirect()->route('pegawai.index') // Asumsi ini route daftar pegawai di admin
             ->with('success', 'Data pegawai berhasil diperbarui');
     }
 }

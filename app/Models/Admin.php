@@ -2,16 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Foundation\Auth\User as Authenticatable; // Penting: Admin juga bisa diautentikasi
+use Illuminate\Notifications\Notifiable;
 
-class Admin extends Model implements AuthenticatableContract
+class Admin extends Authenticatable
 {
-    use HasFactory, Authenticatable;
+    use HasFactory, Notifiable;
 
-    protected $fillable = ['email', 'password'];
+    protected $guard = 'admin'; // Menentukan guard yang akan digunakan untuk model ini
 
-    protected $hidden = ['password'];
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
 }

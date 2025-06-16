@@ -11,10 +11,12 @@ return new class extends Migration
     {
         Schema::create('absensis', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pegawai_id')->constrained('users')->onDelete('cascade'); // ganti dari 'pegawais' ke 'users'
+            // foreignId('pegawai_id')->constrained('pegawais') sekarang merujuk ke tabel 'pegawais'
+            $table->foreignId('pegawai_id')->constrained('pegawais')->onDelete('cascade');
             $table->date('tanggal');
             $table->time('jam_masuk')->nullable();
             $table->time('jam_pulang')->nullable();
+            $table->string('status_masuk')->default('belum_absen');
             $table->timestamps();
         });
     }

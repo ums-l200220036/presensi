@@ -1,6 +1,7 @@
 <x-header>
     <div class="container mx-auto px-4 py-8 max-w-md">
 
+        {{-- Bagian Profil Pengguna (menggunakan Auth::guard('pegawai')->user()) --}}
         <div class="bg-gradient-to-r from-blue-50 to-white rounded-2xl p-5 mb-6 border border-gray-200 shadow-md hover:shadow-lg transition">
             <div class="flex items-center space-x-4">
                 <div class="relative w-16 h-16">
@@ -14,87 +15,82 @@
                 </div>
 
                 <div>
-                    <h2 class="text-xl font-bold text-gray-800 leading-snug">{{ Auth::user()->name }}</h2>
+                    {{-- Menggunakan Auth::guard('pegawai')->user() untuk data pegawai --}}
+                    <h2 class="text-xl font-bold text-gray-800 leading-snug">{{ Auth::guard('pegawai')->user()->name }}</h2>
                     <div class="flex flex-wrap items-center space-x-2 mt-1">
-                        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">{{ Auth::user()->jabatan }}</span>
-                        <span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">{{ Auth::user()->bidang }}</span>
+                        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">{{ Auth::guard('pegawai')->user()->jabatan }}</span>
+                        <span class="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">{{ Auth::guard('pegawai')->user()->bidang }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
+        {{-- Tombol Check In/Check Out (Menggunakan Alpine.js) --}}
         <div x-data="{ checkedIn: {{ session('absen_today') ? 'true' : 'false' }} }" class="mb-6">
             <template x-if="!checkedIn">
+                {{-- Tombol Check In akan terlihat jika belum check-in hari ini --}}
                 <div @click.prevent="
-                    checkLocationAndProceed((userLat, userLng) => {
-                        fetch('{{ route('absensi.cekIn') }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                'Accept': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                latitude: userLat,
-                                longitude: userLng
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) { // Menggunakan data.success
-                                checkedIn = true;
-                                alert(data.message); // Menampilkan pesan dari controller
-                                window.location.reload();
-                            } else {
-                                alert('Check-in gagal: ' + data.message);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error saat check-in:', error);
-                            alert('Terjadi kesalahan saat melakukan check-in.');
-                        });
-                    })"
+                    fetch('{{ route('absensi.cekIn') }}', { // Panggil route check-in
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}', // Penting untuk keamanan Laravel
+                            'Accept': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            checkedIn = true; // Update state Alpine.js
+                            alert(data.message); // Tampilkan pesan sukses dari controller
+                            window.location.reload(); // Reload halaman untuk update tampilan data
+                        } else {
+                            alert('Check-in gagal: ' + data.message); // Tampilkan pesan error dari controller
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saat check-in:', error);
+                        alert('Terjadi kesalahan saat melakukan check-in.');
+                    });
+                    "
                     class="flex flex-col items-center justify-center bg-green-100 border border-green-300 rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer">
                     <p class="text-base font-semibold text-green-800">Check In</p>
                 </div>
             </template>
 
             <template x-if="checkedIn">
+                {{-- Tombol Check Out akan terlihat jika sudah check-in dan belum check-out --}}
                 <div @click.prevent="
-                    checkLocationAndProceed((userLat, userLng) => {
-                        fetch('{{ route('absensi.cekOut') }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                'Accept': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                latitude: userLat,
-                                longitude: userLng
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) { // Menggunakan data.success
-                                checkedIn = false; // Mengubah state agar tombol kembali ke Check In
-                                alert(data.message); // Menampilkan pesan dari controller
-                                window.location.reload();
-                            } else {
-                                alert('Check-out gagal: ' + data.message);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error saat check-out:', error);
-                            alert('Terjadi kesalahan saat melakukan check-out.');
-                        });
-                    })"
+                    fetch('{{ route('absensi.cekOut') }}', { // Panggil route check-out
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}', // Penting untuk keamanan Laravel
+                            'Accept': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            checkedIn = false; // Update state Alpine.js
+                            alert(data.message); // Tampilkan pesan sukses dari controller
+                            window.location.reload(); // Reload halaman untuk update tampilan data
+                        } else {
+                            alert('Check-out gagal: ' + data.message); // Tampilkan pesan error dari controller
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saat check-out:', error);
+                        alert('Terjadi kesalahan saat melakukan check-out.');
+                    });
+                    "
                     class="flex flex-col items-center justify-center bg-red-100 border border-red-300 rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer">
                     <p class="text-base font-semibold text-red-800">Check Out</p>
                 </div>
             </template>
         </div>
 
+        {{-- Statistik Absensi Bulan Ini --}}
         <div class="mb-6">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center space-x-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,17 +101,18 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-gradient-to-r from-green-50 to-white border border-green-200 rounded-xl p-5 shadow-md hover:shadow-lg transition">
-                    <p class="text-3xl font-extrabold text-green-700 text-center">10</p>
+                    <p class="text-3xl font-extrabold text-green-700 text-center">{{ $kehadiranBulanIni ?? 0 }}</p>
                     <p class="text-sm text-gray-600 text-center mt-1">Kehadiran</p>
                 </div>
 
                 <div class="bg-gradient-to-r from-red-50 to-white border border-red-200 rounded-xl p-5 shadow-md hover:shadow-lg transition">
-                    <p class="text-3xl font-extrabold text-red-700 text-center">7</p>
+                    <p class="text-3xl font-extrabold text-red-700 text-center">{{ $tidakHadirBulanIni ?? 0 }}</p>
                     <p class="text-sm text-gray-600 text-center mt-1">Tidak Hadir</p>
                 </div>
             </div>
         </div>
 
+        {{-- Link ke Rekap Presensi --}}
         <div class="mb-6">
             <a href="{{ route('rekap') }}" class="flex items-center justify-between p-5 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 hover:to-white transition shadow-md hover:shadow-lg">
                 <div class="flex items-center space-x-4">
@@ -137,6 +134,7 @@
             </a>
         </div>
 
+        {{-- Detail Absensi Hari Ini --}}
         <div>
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center space-x-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,69 +158,27 @@
                         <p class="text-sm font-medium text-red-600">{{ $absensi?->jam_pulang ?? '-' }}</p>
                     </div>
                 </div>
+                {{-- Menampilkan status absensi hari ini --}}
+                @if($absensi)
+                    <div class="mt-4 text-center">
+                        <p class="text-sm font-bold text-gray-700">Status Hari Ini:</p>
+                        @if($absensi->status_masuk == 'tepat_waktu')
+                            <span class="text-green-600 font-semibold">Tepat Waktu</span>
+                        @elseif($absensi->status_masuk == 'terlambat')
+                            <span class="text-orange-500 font-semibold">Terlambat</span>
+                        @elseif($absensi->status_masuk == 'tidak_hadir')
+                            <span class="text-red-600 font-semibold">Tidak Hadir</span>
+                        @else
+                            <span class="text-gray-500">Status tidak diketahui</span>
+                        @endif
+                    </div>
+                @else
+                    <div class="mt-4 text-center">
+                        <p class="text-sm font-bold text-gray-700">Status Hari Ini:</p>
+                        <span class="text-gray-500">Belum ada data absensi untuk hari ini.</span>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
-
-    <script>
-        const officeLat = -7.552862; // Latitude lokasi kantor
-        const officeLng = 110.764657; // Longitude lokasi kantor
-        const allowedRadius = 100; // Radius toleransi dalam meter
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth's radius in meters
-            const toRad = deg => deg * Math.PI / 180;
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function checkLocationAndProceed(callback) {
-            if (!navigator.geolocation) {
-                alert("Browser Anda tidak mendukung Geolocation.");
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    const userLat = position.coords.latitude;
-                    const userLng = position.coords.longitude;
-                    const distance = getDistance(userLat, userLng, officeLat, officeLng);
-
-                    if (distance <= allowedRadius) {
-                        callback(userLat, userLng);
-                    } else {
-                        alert("Kamu berada di luar area absensi! Jarak Anda dari kantor: " + distance.toFixed(2) + " meter.");
-                    }
-                },
-                error => {
-                    let errorMessage = "Gagal mendapatkan lokasi Anda. ";
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMessage += "Pastikan Anda telah mengizinkan akses lokasi.";
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMessage += "Informasi lokasi tidak tersedia.";
-                            break;
-                        case error.TIMEOUT:
-                            errorMessage += "Permintaan lokasi habis waktu.";
-                            break;
-                        case error.UNKNOWN_ERROR:
-                            errorMessage += "Terjadi kesalahan yang tidak diketahui.";
-                            break;
-                    }
-                    alert(errorMessage);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        }
-    </script>
 </x-header>

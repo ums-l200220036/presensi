@@ -3,90 +3,201 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
+use App\Models\Pegawai; // Menggunakan model Pegawai, bukan User
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Auth; // Untuk Auth facade
+use Carbon\Carbon; // Digunakan untuk manipulasi waktu
+use Illuminate\Support\Facades\Log; // Untuk logging, sangat direkomendasikan untuk debug IP
 
 class AbsensiController extends Controller
 {
+    /**
+     * Menampilkan halaman dashboard pegawai dengan status absensi hari ini dan statistik bulanan.
+     *
+     * @return \Illuminate\View\View
+     */
     public function index()
     {
-        $pegawaiId = Auth::id();
-        $today = now()->toDateString();
+        // Mengambil ID pengguna yang sedang login dari guard 'pegawai'
+        $pegawaiId = Auth::guard('pegawai')->id();
+        $today = now()->toDateString(); // Mengambil tanggal hari ini
 
+        // Mengambil data absensi untuk pengguna yang login pada hari ini
         $absensi = Absensi::where('pegawai_id', $pegawaiId)
             ->where('tanggal', $today)
             ->first();
 
-        // Mengatur sesi berdasarkan keberadaan absensi dan status jam_pulang
+        // Menghitung kehadiran dan ketidakhadiran untuk bulan ini
+        $startOfMonth = now()->startOfMonth()->toDateString();
+        $endOfMonth = now()->endOfMonth()->toDateString();
+
+        $kehadiranBulanIni = Absensi::where('pegawai_id', $pegawaiId)
+            ->whereBetween('tanggal', [$startOfMonth, $endOfMonth])
+            ->whereIn('status_masuk', ['tepat_waktu', 'terlambat'])
+            ->count();
+
+        $tidakHadirBulanIni = Absensi::where('pegawai_id', $pegawaiId)
+            ->whereBetween('tanggal', [$startOfMonth, $endOfMonth])
+            ->where('status_masuk', 'tidak_hadir')
+            ->count();
+
+        // Mengatur status sesi 'absen_today' untuk mengontrol tampilan tombol di frontend (Alpine.js)
         if ($absensi && $absensi->jam_masuk && !$absensi->jam_pulang) {
             session(['absen_today' => true]);
         } else {
             session()->forget('absen_today');
         }
 
-        return view('pegawai.home', compact('absensi'));
+        // Meneruskan variabel ke view. Perhatikan Auth::user() sekarang adalah Pegawai.
+        return view('pegawai.home', compact('absensi', 'kehadiranBulanIni', 'tidakHadirBulanIni'));
     }
 
+    /**
+     * Memproses permintaan check-in.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function cekIn(Request $request)
     {
-        if (!Auth::check()) {
+        // Memastikan pengguna sudah login dan dari guard 'pegawai'
+        if (!Auth::guard('pegawai')->check()) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $pegawaiId = Auth::id();
+        // --- MULAI LOGIKA VALIDASI IP LOKAL JARINGAN TENDA N300 ---
+        // Pastikan Anda sudah mengatur config/attendance.php dengan 'allowed_local_ips'
+        $allowedLocalIps = config('attendance.allowed_local_ips');
+        $userIp = $request->ip(); // Ini akan mendapatkan IP lokal perangkat klien
+
+        // DEBUGGING: Untuk melihat IP yang terdeteksi dan IP yang diizinkan saat check-in
+        // Hapus atau komen baris ini setelah debugging selesai
+        // dd("IP Terdeteksi (Check In):", $userIp, "IP Diizinkan:", $allowedLocalIps);
+
+        // Periksa apakah IP pengguna ada dalam daftar IP yang diizinkan
+        if (!in_array($userIp, $allowedLocalIps)) {
+            // Log peringatan jika IP tidak diizinkan untuk debugging
+            Log::warning('Unauthorized IP attempt for check-in: ' . $userIp . ' by Pegawai ID: ' . Auth::guard('pegawai')->id());
+            return response()->json(['success' => false, 'message' => 'Anda tidak terhubung ke jaringan Wi-Fi yang diizinkan (IP Anda: ' . $userIp . ').'], 403);
+        }
+        // --- AKHIR LOGIKA VALIDASI IP ---
+
+        $pegawaiId = Auth::guard('pegawai')->id(); // Mengambil ID dari guard 'pegawai'
         $tanggal = now()->toDateString();
+        // Mendapatkan waktu saat ini dengan timezone 'Asia/Jakarta'
+        $currentTime = now('Asia/Jakarta');
+
+        // Waktu Check-in (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
+        $checkInStartTime = Carbon::createFromTimeString('07:30:00', 'Asia/Jakarta'); // Jam mulai tepat waktu
+        $checkInEndTime = Carbon::createFromTimeString('08:15:00', 'Asia/Jakarta');   // Jam akhir tepat waktu (setelah ini terlambat)
 
         if (!$pegawaiId) {
             return response()->json(['success' => false, 'message' => 'ID pegawai tidak ditemukan.'], 400);
         }
 
-        // Cek apakah sudah ada absensi masuk untuk hari ini
+        // Cek apakah sudah ada record absensi dengan jam_masuk untuk hari ini
         $existingAbsensi = Absensi::where('pegawai_id', $pegawaiId)
                                   ->where('tanggal', $tanggal)
                                   ->first();
 
         if ($existingAbsensi && $existingAbsensi->jam_masuk) {
-            // Jika sudah ada jam_masuk, tidak perlu melakukan check-in lagi
             return response()->json(['success' => false, 'message' => 'Anda sudah melakukan Check In hari ini.'], 400);
         }
 
-        // Jika belum ada absensi masuk atau belum ada data absensi sama sekali
+        // Validasi waktu Check In: tidak boleh check-in sebelum jam $checkInStartTime
+        if ($currentTime->lt($checkInStartTime)) {
+            return response()->json(['success' => false, 'message' => 'Check In belum bisa dilakukan. Silakan coba lagi pada jam ' . $checkInStartTime->format('H:i') . '.'], 400);
+        }
+
+        // Tentukan status kehadiran berdasarkan waktu check-in
+        $status = 'tepat_waktu';
+        if ($currentTime->gt($checkInEndTime)) {
+            $status = 'terlambat';
+        }
+
+        // Buat atau perbarui record absensi.
         $absensi = Absensi::firstOrCreate(
             ['pegawai_id' => $pegawaiId, 'tanggal' => $tanggal],
-            ['jam_masuk' => now()->toTimeString()]
+            [
+                'jam_masuk' => $currentTime->toTimeString(),
+                'status_masuk' => $status // Simpan status masuk
+            ]
         );
 
-        // Jika absensi baru dibuat atau jam_masuk baru diisi
+        // Periksa apakah record baru dibuat atau jam_masuk diubah (jika sebelumnya null)
         if ($absensi->wasRecentlyCreated || $absensi->wasChanged('jam_masuk')) {
-            session(['absen_today' => true]);
-            return response()->json(['success' => true, 'message' => 'Check In berhasil']);
+            session(['absen_today' => true]); // Set sesi bahwa sudah check-in
+            return response()->json(['success' => true, 'message' => 'Check In berhasil. Status: ' . ($status === 'tepat_waktu' ? 'Tepat Waktu' : 'Terlambat')], 200);
         } else {
-            // Kasus ketika record sudah ada tetapi jam_masuk sudah terisi
-            return response()->json(['success' => false, 'message' => 'Anda sudah melakukan Check In hari ini.'], 400);
+            // Fallback, seharusnya tidak tercapai jika logika 'existingAbsensi' sudah benar
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan. Absensi sudah ada dan jam masuk sudah terisi.'], 400);
         }
     }
 
+    /**
+     * Memproses permintaan check-out.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function cekOut(Request $request)
     {
-        if (!Auth::check()) {
+        // Memastikan pengguna sudah login dan dari guard 'pegawai'
+        if (!Auth::guard('pegawai')->check()) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $pegawaiId = Auth::id();
+        // --- MULAI LOGIKA VALIDASI IP LOKAL JARINGAN TENDA N300 ---
+        // Pastikan Anda sudah mengatur config/attendance.php dengan 'allowed_local_ips'
+        $allowedLocalIps = config('attendance.allowed_local_ips');
+        $userIp = $request->ip(); // Ini akan mendapatkan IP lokal perangkat klien
+
+        // DEBUGGING: Untuk melihat IP yang terdeteksi dan IP yang diizinkan saat check-out
+        // Hapus atau komen baris ini setelah debugging selesai
+        // dd("IP Terdeteksi (Check Out):", $userIp, "IP Diizinkan:", $allowedLocalIps);
+
+        if (!in_array($userIp, $allowedLocalIps)) {
+            Log::warning('Unauthorized IP attempt for check-out: ' . $userIp . ' by Pegawai ID: ' . Auth::guard('pegawai')->id());
+            return response()->json(['success' => false, 'message' => 'Anda tidak terhubung ke jaringan Wi-Fi yang diizinkan (IP Anda: ' . $userIp . ').'], 403);
+        }
+        // --- AKHIR LOGIKA VALIDASI IP ---
+
+        $pegawaiId = Auth::guard('pegawai')->id(); // Mengambil ID dari guard 'pegawai'
         $tanggal = now()->toDateString();
+        // Mendapatkan waktu saat ini dengan timezone 'Asia/Jakarta'
+        $currentTime = now('Asia/Jakarta');
+
+        // Waktu Check-out (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
+        $checkOutStartTime = Carbon::createFromTimeString('15:00:00', 'Asia/Jakarta'); // Jam mulai check-out
+        $checkOutEndTime = Carbon::createFromTimeString('16:00:00', 'Asia/Jakarta');   // Jam akhir check-out
 
         $absensi = Absensi::where('pegawai_id', $pegawaiId)
             ->where('tanggal', $tanggal)
             ->first();
 
+        // Cek apakah ada record absensi untuk hari ini, sudah check-in, dan belum check-out
         if ($absensi && $absensi->jam_masuk && !$absensi->jam_pulang) {
-            $absensi->update(['jam_pulang' => now()->toTimeString()]);
-            session()->forget('absen_today');
+            // Validasi waktu Check Out: tidak boleh check-out sebelum jam $checkOutStartTime
+            if ($currentTime->lt($checkOutStartTime)) {
+                return response()->json(['success' => false, 'message' => 'Check Out belum bisa dilakukan. Silakan coba lagi pada jam ' . $checkOutStartTime->format('H:i') . '.'], 400);
+            }
 
-            return response()->json(['success' => true, 'message' => 'Check Out berhasil']);
+            // Validasi waktu Check Out: tidak boleh check-out setelah jam $checkOutEndTime
+            if ($currentTime->gt($checkOutEndTime)) {
+                return response()->json(['success' => false, 'message' => 'Anda sudah melewati batas waktu Check Out (' . $checkOutEndTime->format('H:i') . '). Silakan hubungi admin.'], 400);
+            }
+
+            // Update jam_pulang di record absensi yang sudah ada
+            $absensi->update(['jam_pulang' => $currentTime->toTimeString()]);
+            session()->forget('absen_today'); // Hapus sesi setelah check-out berhasil
+
+            return response()->json(['success' => true, 'message' => 'Check Out berhasil'], 200);
+
         } elseif (!$absensi || !$absensi->jam_masuk) {
+            // Jika tidak ada record absensi atau belum ada jam_masuk
             return response()->json(['success' => false, 'message' => 'Anda belum melakukan Check In hari ini.'], 400);
         } else {
+            // Jika absensi ada, jam_masuk ada, dan jam_pulang juga sudah ada (sudah check-out)
             return response()->json(['success' => false, 'message' => 'Anda sudah Check Out hari ini.'], 400);
         }
     }
