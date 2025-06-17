@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
-use App\Models\Pegawai; // Menggunakan model Pegawai
+use App\Models\Pegawai;
+use App\Models\Setting; // Pastikan model Setting sudah diimport
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Untuk Auth facade
-use Carbon\Carbon; // Digunakan untuk manipulasi waktu
-use Illuminate\Support\Facades\Log; // Untuk logging, sangat direkomendasikan untuk debug IP
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class AbsensiController extends Controller
 {
@@ -66,30 +67,27 @@ class AbsensiController extends Controller
         }
 
         // --- MULAI LOGIKA VALIDASI IP LOKAL JARINGAN TENDA N300 ---
-        // Pastikan Anda sudah mengatur config/attendance.php dengan 'allowed_local_ips'
         $allowedLocalIps = config('attendance.allowed_local_ips');
-        $userIp = $request->ip(); // Ini akan mendapatkan IP lokal perangkat klien
-
-        // DEBUGGING: Untuk melihat IP yang terdeteksi dan IP yang diizinkan saat check-in
-        // Hapus atau komen baris ini setelah debugging selesai
-        // dd("IP Terdeteksi (Check In):", $userIp, "IP Diizinkan:", $allowedLocalIps);
+        $userIp = $request->ip();
 
         // Periksa apakah IP pengguna ada dalam daftar IP yang diizinkan
         if (!in_array($userIp, $allowedLocalIps)) {
-            // Log peringatan jika IP tidak diizinkan untuk debugging
             Log::warning('Unauthorized IP attempt for check-in: ' . $userIp . ' by Pegawai ID: ' . Auth::guard('pegawai')->id());
             return response()->json(['success' => false, 'message' => 'Anda tidak terhubung ke jaringan Wi-Fi yang diizinkan (IP Anda: ' . $userIp . ').'], 403);
         }
         // --- AKHIR LOGIKA VALIDASI IP ---
 
-        $pegawaiId = Auth::guard('pegawai')->id(); // Mengambil ID dari guard 'pegawai'
+        $pegawaiId = Auth::guard('pegawai')->id();
         $tanggal = now()->toDateString();
         // Mendapatkan waktu saat ini dengan timezone 'Asia/Jakarta'
         $currentTime = now('Asia/Jakarta');
 
-        // Waktu Check-in (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
-        $checkInStartTime = Carbon::createFromTimeString('00:00:00', 'Asia/Jakarta'); // Jam mulai tepat waktu
-        $checkInEndTime = Carbon::createFromTimeString('00:15:00', 'Asia/Jakarta');   // Jam akhir tepat waktu (setelah ini terlambat)
+        // --- AMBIL PENGATURAN JAM DARI DATABASE ---
+        $settings = Setting::all()->pluck('value', 'key');
+        // Gunakan nilai dari database, dengan fallback jika belum ada di database (misal: setelah fresh install)
+        $checkInStartTime = Carbon::createFromTimeString($settings['check_in_start'] ?? '08:00:00', 'Asia/Jakarta');
+        $checkInEndTime = Carbon::createFromTimeString($settings['check_in_end'] ?? '08:15:00', 'Asia/Jakarta');
+        // --- AKHIR PENGAMBILAN PENGATURAN ---
 
         if (!$pegawaiId) {
             return response()->json(['success' => false, 'message' => 'ID pegawai tidak ditemukan.'], 400);
@@ -148,13 +146,8 @@ class AbsensiController extends Controller
         }
 
         // --- MULAI LOGIKA VALIDASI IP LOKAL JARINGAN TENDA N300 ---
-        // Pastikan Anda sudah mengatur config/attendance.php dengan 'allowed_local_ips'
         $allowedLocalIps = config('attendance.allowed_local_ips');
-        $userIp = $request->ip(); // Ini akan mendapatkan IP lokal perangkat klien
-
-        // DEBUGGING: Untuk melihat IP yang terdeteksi dan IP yang diizinkan saat check-out
-        // Hapus atau komen baris ini setelah debugging selesai
-        // dd("IP Terdeteksi (Check Out):", $userIp, "IP Diizinkan:", $allowedLocalIps);
+        $userIp = $request->ip();
 
         if (!in_array($userIp, $allowedLocalIps)) {
             Log::warning('Unauthorized IP attempt for check-out: ' . $userIp . ' by Pegawai ID: ' . Auth::guard('pegawai')->id());
@@ -167,9 +160,12 @@ class AbsensiController extends Controller
         // Mendapatkan waktu saat ini dengan timezone 'Asia/Jakarta'
         $currentTime = now('Asia/Jakarta');
 
-        // Waktu Check-out (sesuaikan sesuai kebutuhan Anda, contoh ini untuk testing)
-        $checkOutStartTime = Carbon::createFromTimeString('00:00:00', 'Asia/Jakarta'); // Jam mulai check-out
-        $checkOutEndTime = Carbon::createFromTimeString('00:20:00', 'Asia/Jakarta');   // Jam akhir check-out
+        // --- AMBIL PENGATURAN JAM DARI DATABASE ---
+        $settings = Setting::all()->pluck('value', 'key');
+        // Gunakan nilai dari database, dengan fallback jika belum ada di database
+        $checkOutStartTime = Carbon::createFromTimeString($settings['check_out_start'] ?? '17:00:00', 'Asia/Jakarta');
+        $checkOutEndTime = Carbon::createFromTimeString($settings['check_out_end'] ?? '17:30:00', 'Asia/Jakarta');
+        // --- AKHIR PENGAMBILAN PENGATURAN ---
 
         $absensi = Absensi::where('pegawai_id', $pegawaiId)
             ->where('tanggal', $tanggal)
@@ -240,7 +236,6 @@ class AbsensiController extends Controller
             ];
         }
         // Urutkan dari bulan terlama ke terbaru (opsional, tergantung preferensi)
-        // Jika Anda ingin bulan terbaru di atas, jangan gunakan array_reverse
         $availableMonths = array_reverse($availableMonths);
 
 

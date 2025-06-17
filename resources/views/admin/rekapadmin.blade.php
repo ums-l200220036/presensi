@@ -1,4 +1,4 @@
-<x-header>
+<x-headeradmin>
     <div class="max-w-4xl mx-auto mt-6 px-4 sm:px-6 space-y-6">
 
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -74,4 +74,4 @@
             </table>
         </div>
     </div>
-</x-header>
+</x-headeradmin>

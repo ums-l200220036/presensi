@@ -33,6 +33,10 @@
                     <i class="fa-solid fa-user-plus"></i>
                     <span>Tambah Pegawai</span>
                 </a>
+                <a href="{{ route('admin.settings.index') }}" class="flex items-center space-x-2 py-2 px-4 hover:bg-blue-700 rounded-lg mb-2">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Seting Waktu</span>
+                </a>
             </nav>
             <form action="{{ route('logout') }}" method="POST" class="absolute bottom-4 left-4 right-4">
                 @csrf
