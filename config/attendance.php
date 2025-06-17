@@ -19,7 +19,7 @@ return [
             // IP Gateway Tenda N300 Anda
             '192.168.243.102',
 
-            // IP localhost untuk pengujian di mesin yang sama dengan server Laravel
+            '114.125.93.184', // IP publik yang diizinkan (misalnya, IP server)
             '127.0.0.1', // localhost IPv4
             // '::1',       // localhost IPv6
         ],
