@@ -19,7 +19,7 @@ return [
             // IP Gateway Tenda N300 Anda
             '192.168.243.102',
 
-            '113.192.31.242', // IP publik yang diizinkan (misalnya, IP server)
+            '114.125.77.216', // IP publik yang diizinkan (misalnya, IP server)
             '127.0.0.1', // localhost IPv4
             // '::1',       // localhost IPv6
         ],
