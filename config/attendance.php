@@ -17,7 +17,7 @@ return [
     'allowed_local_ips' => array_merge(
         [
             // IP Gateway Tenda N300 Anda
-            '192.168.60.234',
+            '192.168.243.102',
 
             // IP localhost untuk pengujian di mesin yang sama dengan server Laravel
             '127.0.0.1', // localhost IPv4
