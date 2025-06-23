@@ -17,7 +17,7 @@ return [
     'allowed_local_ips' => array_merge(
         [
             // IP Gateway Tenda N300 Anda
-            '114.125.93/56',
+            '114.125.93.56',
             '192.168.243.102',
 
             '114.125.77.216', // IP publik yang diizinkan (misalnya, IP server)
